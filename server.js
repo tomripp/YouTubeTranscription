@@ -26,6 +26,10 @@ app.get("/health", (_, res) => res.json({ ok: true }));
 app.get("/transcript", async (req, res) => {
   const input = req.query.url || req.query.video_id;
   const lang = req.query.lang;
+  const includeSegments =
+    req.query.segments === "1" ||
+    req.query.segments === "true" ||
+    req.query.segments === "yes";
 
   if (!input) return res.status(400).json({ error: "missing_url_or_video_id" });
 
@@ -39,18 +43,31 @@ app.get("/transcript", async (req, res) => {
     );
 
     if (!segments?.length) {
-      return res.json({ video_id: videoId, transcript: "", segments: [], warning: "no_captions_found" });
+      return res.json({
+        video_id: videoId,
+        transcript: "",
+        warning: "no_captions_found",
+      });
     }
 
-    const transcript = segments.map(s => s.text).join(" ").replace(/\s+/g, " ").trim();
-    return res.json({ video_id: videoId, transcript, segments });
+    const transcript = segments
+      .map((s) => s.text)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const payload = { video_id: videoId, transcript };
+    if (includeSegments) payload.segments = segments;
+
+    return res.json(payload);
   } catch (e) {
     return res.status(502).json({
       video_id: videoId,
       error: "transcript_fetch_failed",
-      detail: String(e?.message || e)
+      detail: String(e?.message || e),
     });
   }
 });
+
 
 app.listen(PORT, () => console.log(`listening on ${PORT}`));
